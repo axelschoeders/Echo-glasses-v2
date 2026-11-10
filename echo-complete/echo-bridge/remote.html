@@ -1,0 +1,82 @@
+<!doctype html><html lang="nl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Echo Bridge">
+<meta name="theme-color" content="#0d0b09">
+<title>Echo Bridge</title>
+<style>
+:root{--cy:#ffb454;--am:#ffb454;--bg:#0d0b09;--pn:#1a1612;--bd:#4a3a28;--tx:#f3e9dc;--dm:#a8957c}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 50% 0,#2a1d10,#0d0b09 60%);color:var(--tx);font:16px -apple-system,system-ui,sans-serif;padding:env(safe-area-inset-top) 14px calc(env(safe-area-inset-bottom) + 30px)}
+h1{font-weight:300;letter-spacing:6px;text-align:center;font-size:20px;margin:18px 0 6px}
+h2{font-size:13px;letter-spacing:3px;color:var(--cy);font-weight:400;margin:22px 0 8px}
+.g{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+button,select{background:var(--pn);color:var(--tx);border:1px solid var(--bd);border-radius:14px;padding:14px 4px;font-size:15px;width:100%}
+button:active{background:#2c2218}
+button.w{border-color:#7a5a2a;color:#ffd08a}
+#t{position:fixed;left:14px;right:14px;bottom:calc(env(safe-area-inset-bottom) + 12px);background:#1a1612;border:1px solid var(--cy);border-radius:14px;padding:12px;text-align:center;display:none}
+.s{color:var(--dm);font-size:13px;text-align:center}
+</style></head><body>
+<h1>ECHO · BRIDGE</h1><div class="s" id="s">Verbinden…</div>
+<h2>TV</h2><select id="tv"></select>
+<div class="g" id="tvg" style="margin-top:8px"></div>
+<h2>WINDOWS-PC</h2><div class="g" id="pcg"></div>
+<h2>APPS OP PC</h2><div class="g" id="apg"></div>
+<div id="t"></div>
+<script>
+const $=s=>document.querySelector(s);
+let T=localStorage.ebt||"";
+if(location.hash.startsWith("#t=")){T=location.hash.slice(3);localStorage.ebt=T;history.replaceState(null,"",location.pathname)}
+async function api(path,body){
+  const r=await fetch(path,{method:body?"POST":"GET",headers:{"X-Echo-Token":T,"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||("fout "+r.status));return j}
+let tt;function toast(m){const e=$("#t");e.textContent=m;e.style.display="block";clearTimeout(tt);tt=setTimeout(()=>e.style.display="none",2500)}
+async function run(f){try{await f();toast("OK")}catch(e){toast(e.message)}}
+function btn(box,label,fn,cls){const b=document.createElement("button");b.textContent=label;if(cls)b.className=cls;b.onclick=()=>run(fn);$(box).appendChild(b)}
+const TVB=[["Aanzetten",null,"w"],["Aan/uit","KEY_POWER","w"],["Bron","KEY_SOURCE"],
+["Vol −","KEY_VOLDOWN"],["Mute","KEY_MUTE"],["Vol +","KEY_VOLUP"],
+["Zender −","KEY_CHDOWN"],["Home","KEY_HOME"],["Zender +","KEY_CHUP"],
+["","",""],["▲","KEY_UP"],["",""],["◀","KEY_LEFT"],["OK","KEY_ENTER"],["▶","KEY_RIGHT"],
+["Terug","KEY_RETURN"],["▼","KEY_DOWN"],["Menu","KEY_MENU"],
+["⏪","KEY_REWIND"],["⏯","KEY_PLAY"],["⏩","KEY_FF"],["⏸","KEY_PAUSE"],["⏹","KEY_STOP"],["Info","KEY_INFO"]];
+const PCB=[["Vergrendel","lock"],["Slaapstand","sleep"],["Mute","mute"],["Vol −","volume_down"],["Vol +","volume_up"],["⏯","play_pause"],["⏮","prev"],["⏭","next"]];
+(async()=>{
+  try{
+    const st=await api("/api/state");
+    $("#s").textContent="Verbonden met je pc";
+    st.tvs.forEach(n=>{const o=document.createElement("option");o.textContent=n;$("#tv").appendChild(o)});
+    if(!st.tvs.length){$("#tv").style.display="none";$("#tvg").innerHTML='<div class="s" style="grid-column:1/4">Geen tv ingesteld. Zet er een in config.json.</div>'}
+    else TVB.forEach(([l,k,c])=>{ if(!l){$("#tvg").appendChild(document.createElement("span"));return}
+      btn("#tvg",l,()=>k?api("/api/tv",{tv:$("#tv").value,key:k}):api("/api/tv/wake",{tv:$("#tv").value}),c)});
+    (st.tvs.length?(st.tvApps||[]):[]).forEach(n=>btn("#tvg",n,()=>api("/api/tv/app",{tv:$("#tv").value,app:n})));
+    PCB.forEach(([l,a])=>btn("#pcg",l,()=>api("/api/pc",{action:a})));
+    btn("#pcg","Uitzetten (30s)",async()=>{if(!confirm("Pc over 30 seconden uitzetten?"))throw new Error("Geannuleerd");await api("/api/pc",{action:"shutdown"})},"w");
+    btn("#pcg","Herstarten (30s)",async()=>{if(!confirm("Pc over 30 seconden herstarten?"))throw new Error("Geannuleerd");await api("/api/pc",{action:"restart"})},"w");
+    btn("#pcg","Annuleer",()=>api("/api/pc",{action:"cancel_shutdown"}));
+    st.apps.forEach(n=>btn("#apg",n,()=>api("/api/pc",{action:"open:"+n})));
+    if(!st.windows)$("#s").textContent+=" (PC-opdrachten werken alleen op Windows)";
+  }catch(e){$("#s").textContent=T?("Mislukt: "+e.message):"Open het adres uit het zwarte venster op je pc (met #t=…)"}
+})();
+
+(function(){const b=document.createElement("button");b.textContent="STOP ALLE PROCESSEN";
+b.style.cssText="position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));padding:16px;border-radius:14px;border:2px solid #ff4d4d;background:#2a0b0b;color:#ff7a7a;font:700 16px system-ui;z-index:50";
+b.onclick=()=>run(async()=>{await api("/api/panic",{})});document.body.appendChild(b);
+// ---- ECHO speaks security alerts on this phone (page must stay open, screen on)
+let on=false,cur=-1,wl=null;
+const ab=document.createElement("button");ab.textContent="Beveiligingsalarm: uit";
+ab.style.cssText="position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));padding:12px;border-radius:14px;border:1px solid #4a3a28;background:#1a1612;color:#f3e9dc;font:600 15px system-ui;z-index:50";
+function say(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance("ECHO beveiligingsalarm. "+t);u.lang="nl-NL";u.rate=.95;speechSynthesis.speak(u)}catch(e){}try{navigator.vibrate&&navigator.vibrate([400,150,400,150,400])}catch(e){}toast("ALARM: "+t)}
+async function poll(){if(!on)return;try{const r=await api("/api/alerts?since="+cur);cur=r.last;r.alerts.forEach(say)}catch(e){}setTimeout(poll,3000)}
+ab.onclick=async()=>{on=!on;ab.textContent="Beveiligingsalarm: "+(on?"aan (houd scherm aan)":"uit");
+ if(on){try{speechSynthesis.speak(new SpeechSynthesisUtterance(" "))}catch(e){}try{wl=await navigator.wakeLock.request("screen")}catch(e){}cur=-1;poll();say("Alarm staat aan. Zo hoor je het als er iets gebeurt.")}else{try{wl&&wl.release()}catch(e){}}};
+document.body.appendChild(ab)})();
+</script><script src="echo-jarvis.js"></script><script src="echo-clap.js"></script>
+<script>
+// Klap op de afstandsbediening: 2 klappen = tv dempen, 3 klappen = pc vergrendelen. Standaard uit (knop rechtsboven).
+(function(){const w=window.ECHOCLAP;if(!w)return;
+const j=t=>{try{ECHOJARVIS.say(t)}catch(e){}};
+w.onPattern(async n=>{try{
+ if(n===2){const tv=$("#tv").value;if(!tv)return j("Er is geen tv ingesteld.");await api("/api/tv",{tv,key:"KEY_MUTE"});toast("OK");j("Tv gedempt, meneer.")}
+ else if(n>=3){await api("/api/pc",{action:"lock"});toast("OK");j("Pc vergrendeld.")}
+}catch(e){toast(e.message)}})})();
+</script></body></html>

@@ -1,0 +1,15 @@
+{
+  "port": 8765,
+  "token": "2414e1ac333bfc930a43de68",
+  "tvs": [
+    {
+      "name": "Axeltv",
+      "ip": "192.168.0.141",
+      "mac": "04:b9:e3:21::E8:DB"
+    }
+  ],
+  "apps": {
+    "Kladblok": "notepad.exe",
+    "Rekenmachine": "calc.exe"
+  }
+}

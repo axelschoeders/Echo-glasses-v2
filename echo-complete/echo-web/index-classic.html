@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="nl"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Echo">
+<meta name="theme-color" content="#050b14">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Echo</title>
+<style>
+:root{color-scheme:dark;--cy:#2de2ff;--dim:#7a99ad}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%}
+body{background:radial-gradient(ellipse at 50% 30%,#0c2236,#050b14 70%);color:#d8f3ff;font:16px -apple-system,system-ui,sans-serif;padding:env(safe-area-inset-top) 20px env(safe-area-inset-bottom)}
+main,#lock{display:flex;flex-direction:column;align-items:center;gap:14px;padding:26px 0}
+h1{margin:0;font-weight:300;letter-spacing:.5em;font-size:22px;padding-left:.5em}
+#st{color:var(--dim);text-align:center;min-height:20px}
+#orb{width:180px;height:180px;border-radius:50%;border:2px solid var(--cy);margin:10px 0;background:radial-gradient(circle at 50% 40%,rgba(45,226,255,.35),rgba(45,226,255,.05) 70%);box-shadow:0 0 40px rgba(45,226,255,.25)}
+#orb.on{animation:p 1.1s ease-in-out infinite}
+@keyframes p{50%{transform:scale(1.07);box-shadow:0 0 70px rgba(45,226,255,.55)}}
+.l{width:100%;max-width:480px;line-height:1.4;min-height:22px}#you{color:var(--dim)}
+.r{display:flex;gap:8px;width:100%;max-width:480px}
+button,select,input{font:inherit;color:#d8f3ff}
+.r input{flex:1;min-width:0;padding:12px;border-radius:14px;border:1px solid #1c3a50;background:#0b1b2a}
+.r button,#bb,#unlock,#save{flex:1;padding:13px 6px;border-radius:14px;border:1px solid #1c3a50;background:#0b1b2a;font-size:15px}
+#bb{width:100%;max-width:480px;border-color:#ffb020;color:#ffb020}
+#lock{position:fixed;inset:0;z-index:9;background:#050b14;justify-content:center}
+#cfg{width:100%;max-width:480px;display:flex;flex-direction:column;gap:8px}
+#cfg label{font-size:13px;color:var(--dim)}
+#cfg input,#cfg select,#lock input{padding:11px;border-radius:10px;border:1px solid #1c3a50;background:#0b1b2a;width:100%}
+#appv{position:fixed;inset:0;z-index:8;background:#050b14;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+#pair{padding:13px 6px;border-radius:14px;border:1px solid #1c3a50;background:#0b1b2a;font-size:15px}
+a{color:var(--cy)}[hidden]{display:none!important}
+</style></head><body>
+<div id="lock" hidden><h1>ECHO</h1><input id="pin" type="password" inputmode="numeric" placeholder="Pincode" style="max-width:260px"><button id="unlock" style="flex:none;width:260px">Ontgrendel</button><div id="lm" style="color:#ffb020"></div></div>
+<div id="appv" hidden><div class="r" style="padding:8px"><button id="ac">Sluiten</button><button id="as">Opslaan</button><button id="ad">Delen</button></div><iframe id="fr" sandbox="allow-scripts" style="flex:1;border:0;width:100%;background:#fff"></iframe></div>
+<main>
+<h1>ECHO</h1><div id="st"></div><button id="orb" aria-label="Praat met Echo"></button>
+<div class="l" id="you"></div><div class="l" id="echo"></div><a id="link" hidden target="_blank">Open zoekresultaat</a>
+<div class="r"><input id="tx" placeholder="Typ hier wat je wilt…" enterkeyhint="send" autocomplete="off"><button id="sd" style="flex:none;width:64px">Stuur</button><button id="mu" style="flex:none;width:92px">Stem: aan</button></div>
+<button id="bb" hidden>Goedemorgen. Speel de briefing af</button>
+<div class="r"><button id="wake">Hey Echo: uit</button><button id="brief">Nieuws &amp; weer</button><button id="cb">Instellingen</button></div>
+<div id="cfg" hidden>
+<label>Naam</label><input id="f_name">
+<label>Plaats (voor het weer als locatie uit staat)</label><input id="f_city">
+<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="f_loc" style="width:auto"> Echo mag mijn plaats weten (gebruikt het veld Plaats)</label>
+<label>Briefing-tijd</label><input id="f_brief" type="time">
+<label>Nieuwe pincode (leeg laten = niet wijzigen, "-" = wissen)</label><input id="f_pin" type="password" inputmode="numeric">
+<label>Gratis AI-aanbieder</label><select id="f_prov"><option value="groq">Groq</option><option value="gemini">Google Gemini</option><option value="openrouter">OpenRouter</option><option value="eigen">Eigen</option></select>
+<label>API-URL</label><input id="f_url"><label>Model</label><input id="f_model"><label>Gratis API-sleutel</label><input id="f_key" type="password">
+<label>Stem (kies Vlaams als je die hebt)</label><select id="f_voice"></select>
+<button id="pair">Koppel bril-app (kopieer configuratie)</button>
+<button id="save">Opslaan</button></div>
+</main>
+<script src="echo-3d.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const P={groq:["https://api.groq.com/openai/v1/chat/completions","openai/gpt-oss-20b"],gemini:["https://generativelanguage.googleapis.com/v1beta/openai/chat/completions","gemini-2.5-flash"],openrouter:["https://openrouter.ai/api/v1/chat/completions","meta-llama/llama-3.3-70b-instruct:free"]};
+const WMO={0:"onbewolkt",1:"overwegend zonnig",2:"half bewolkt",3:"bewolkt",45:"mistig",48:"mistig",51:"motregenachtig",53:"motregenachtig",55:"zwaar motregenachtig",61:"regenachtig",63:"regenachtig",65:"zwaar regenachtig",71:"sneeuwachtig",73:"sneeuwachtig",75:"zwaar sneeuwachtig",80:"buiig",81:"buiig",82:"met zware buien",95:"onweersachtig",96:"onweersachtig",99:"onweersachtig"};
+let C=Object.assign({name:"",city:"Amsterdam",brief:"10:00",pin:"",prov:"groq",url:P.groq[0],model:P.groq[1],key:"",last:""},JSON.parse(localStorage.echo||"{}"));
+const save=()=>localStorage.echo=JSON.stringify(C);
+let rec=null,wakeOn=false,armed=0,speaking=false,busy=false,hist=[],wl=null,hid=0;
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+window.ECHOSTATE=()=>({busy,speaking,listening:wakeOn||Date.now()<armed||$("orb").classList.contains("on")});
+const WAKE=/\b(hey|hé|hee|hei|hai|hallo)[\s,]*(echo|eko|ecco|ekko)\b[\s,.!?]*/i;
+const st=t=>$("st").textContent=t, idle=()=>wakeOn?'Zeg "Hey Echo" (scherm aan laten)':"Tik op de cirkel om te praten";
+async function hash(s){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("echo:"+s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+function lockIf(){if(C.pin){$("lock").hidden=false;setWake(false)}}
+$("unlock").onclick=async()=>{if(await hash($("pin").value)===C.pin){$("lock").hidden=true;$("pin").value="";$("lm").textContent=""}else $("lm").textContent="Onjuiste pincode"};
+document.addEventListener("visibilitychange",()=>{if(document.hidden)hid=Date.now();else{if(C.pin&&Date.now()-hid>120000)lockIf();if(wakeOn){listen(false);reqLock()}}});
+function unlockSpeech(){try{const u=new SpeechSynthesisUtterance(" ");u.volume=0;speechSynthesis.speak(u)}catch(e){}}
+function beep(){try{const a=new AudioContext(),o=a.createOscillator();o.connect(a.destination);o.frequency.value=900;o.start();o.stop(a.currentTime+.12)}catch(e){}}
+function say(t,f){if(C.mute&&!f)return Promise.resolve();return new Promise(ok=>{speaking=true;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="nl-NL";const V=speechSynthesis.getVoices().filter(v=>/^nl/i.test(v.lang||"")),v=V.find(v=>v.voiceURI===C.voice)||V.find(v=>/nl[-_]BE/i.test(v.lang))||V[0];if(v)u.voice=v;u.onend=u.onerror=()=>{speaking=false;ok()};speechSynthesis.speak(u)}catch(e){speaking=false;ok()}})}
+function stopRec(){if(rec){rec.onend=null;try{rec.abort()}catch(e){}rec=null}}
+function listen(single){
+ if(!SR){st("Spraakherkenning werkt hier niet. Zet Dicteren aan in iOS-instellingen.");return}
+ stopRec();rec=new SR();rec.lang="nl-NL";rec.continuous=!single;rec.interimResults=false;
+ rec.onresult=e=>heard(e.results[e.results.length-1][0].transcript.trim(),single);
+ rec.onerror=e=>{if(/not-allowed|service-not-allowed/.test(e.error)){setWake(false);st("Geef toegang tot microfoon en spraakherkenning")}};
+ rec.onend=()=>{if(wakeOn&&!speaking&&!busy&&!single)setTimeout(()=>listen(false),300);else if(single&&!busy){$("orb").classList.remove("on");st(idle())}};
+ try{rec.start()}catch(e){}}
+function heard(t,single){
+ if(!$("lock").hidden)return;
+ if(single){stopRec();return run(t)}
+ const m=t.match(WAKE);
+ if(m){const rest=t.slice(m.index+m[0].length).trim();if(rest)return run(rest);armed=Date.now()+8000;beep();st("Ja? Ik luister…");return}
+ if(Date.now()<armed){armed=0;run(t)}}
+async function run(text){
+ if(busy)return;busy=true;stopRec();$("orb").classList.remove("on");$("you").textContent="Jij: "+text;st("Even denken…");$("link").hidden=true;
+ let r;try{r=await route(text)}catch(e){r="Er ging iets mis: "+e.message}
+ $("echo").textContent="Echo: "+r;busy=false;await say(r);st(idle());if(wakeOn)listen(false);else if(waitIdea)listen(true)}
+async function route(text){
+ const t=text.toLowerCase().replace(WAKE,"").replace(/[.!?,]+$/,"").trim();
+ if(/stop alle processen/.test(t)){try{speechSynthesis.cancel()}catch(e){}waitIdea=false;setWake(false);if(window.ECHO3D){ECHO3D.stopHands();ECHO3D.close()}$("appv").hidden=true;return"Alles gestopt. Voor de pc-bridge: gebruik de rode stopknop op de afstandsbediening."}
+ if(waitIdea){waitIdea=false;return buildApp(t)}
+ if(window.ECHO3D&&ECHO3D.handles(t)){if(/explosie|uitklappen|uit elkaar/.test(t)){ECHO3D.explode(true);return"Ik klap het model uit elkaar."}
+  if(!C.key)return"Ik heb een AI-sleutel nodig om 3D-modellen te maken.";st("Ik ontwerp je model…");
+  const m=await ECHO3D.make(t.replace(/^.*?\b(maak|bouw|ontwerp|genereer)\b/,"").trim()||t,async(sys,u)=>{const r=await fetch(C.url,{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+C.key},body:JSON.stringify({model:C.model,messages:[{role:"system",content:sys},{role:"user",content:u}],max_tokens:6000})});if(!r.ok)throw new Error("AI-dienst gaf fout "+r.status);return(await r.json()).choices[0].message.content});
+  return"Klaar, hier is je "+m.name+(m.computer?". Zeg uitklappen voor de explosieweergave.":".")}
+ const m=t.match(/\b(maak|maakt|maken|bouw|bouwt|bouwen|ontwerp|ontwerpen|programmeer|programmeren|schrijf|bedenk)\b.*?\b(?:app|apps|applicatie)\b[\s,:.]*(.*)$/);
+ if(m){const idea=m[2].trim();if(idea.split(" ").length>=3)return buildApp(idea);waitIdea=true;armed=Date.now()+20000;return"Wat voor app wil je maken? Vertel je idee."}
+ if(cur&&/^pas (de|je|deze) app aan/.test(t))return buildApp(t.replace(/^pas (de|je|deze) app aan[\s,:.]*/,""),cur.html);
+ if(/mijn apps/.test(t)){const a=apps();return a.length?"Je hebt: "+a.map(x=>x.name).join(", ")+".":"Je hebt nog geen opgeslagen apps."}
+ const o=t.match(/^open (?:de )?app (.+)/);
+ if(o){const a=apps().find(x=>x.name.toLowerCase().includes(o[1]));if(a){cur=a;showApp();return"Ik open "+a.name+"."}return"Die app heb ik niet opgeslagen."}
+ if(/hoe laat/.test(t))return"Het is "+new Date().toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"})+".";
+ if(/\b(het weer|weerbericht|weersverwachting)\b/.test(t))return weather();
+ if(/nieuws|headlines/.test(t))return news();
+ if(/briefing/.test(t))return briefing();
+ const z=t.match(/^zoek op (.+)/);if(z){$("link").href="https://www.google.com/search?q="+encodeURIComponent(z[1]);$("link").hidden=false;return"Tik op de link om te zoeken."}
+ return ask(text)}
+const pos=()=>new Promise((ok,no)=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>ok(p.coords),no,{timeout:8000,maximumAge:3600000}):no());
+async function weather(){
+ let la,lo,w8="bij jou";
+ try{const c=await pos();la=c.latitude;lo=c.longitude}catch(e){const g=(await(await fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&language=nl&name="+encodeURIComponent(C.city))).json()).results[0];la=g.latitude;lo=g.longitude;w8="in "+g.name}
+ const w=await(await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1`)).json(),d=w.daily;
+ return`Het is ${w8} nu ${Math.round(w.current.temperature_2m)} graden. Vandaag wordt het ${WMO[d.weather_code[0]]||"wisselvallig"}, tussen ${Math.round(d.temperature_2m_min[0])} en ${Math.round(d.temperature_2m_max[0])} graden, met ${d.precipitation_probability_max[0]} procent kans op regen.`}
+async function news(){
+ const j=await(await fetch("https://api.rss2json.com/v1/api.json?rss_url="+encodeURIComponent("https://feeds.nos.nl/nosnieuwsalgemeen"))).json();
+ const t=(j.items||[]).slice(0,4).map(i=>i.title.replace(/\.$/,""));
+ return t.length?"De belangrijkste koppen: "+t.join(". ")+".":"Ik kon het nieuws nu niet ophalen."}
+async function briefing(){
+ C.last=new Date().toDateString();save();$("bb").hidden=true;
+ const h=new Date().getHours(),g=h<12?"Goedemorgen":h<18?"Goedemiddag":"Goedenavond";
+ const w=await weather().catch(()=>"Het weer kon ik niet ophalen."),n=await news().catch(()=>"Het nieuws kon ik niet ophalen.");
+ return`${g} ${C.name}. ${w} ${n}`}
+let waitIdea=false,cur=null;
+const apps=()=>JSON.parse(localStorage.echoapps||"[]");
+const CSP="<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:\">";
+async function buildApp(idea,prev){
+ if(!C.key)return"Ik heb een gratis AI-sleutel nodig om apps te maken. Voeg die toe bij Instellingen.";
+ st("Ik bouw je app, dit duurt even…");
+ const sys="Je bent een app-bouwer. Antwoord met uitsluitend één compleet HTML-bestand (HTML, CSS en JavaScript inline), zonder uitleg en zonder markdown. Regels: mobielvriendelijk, donker thema, Nederlandse tekst, geen externe bestanden, geen internet, geen localStorage of cookies (bewaar gegevens in variabelen), een duidelijke <title>.";
+ const u=prev?"Dit is de huidige app:\n"+prev+"\n\nPas hem aan: "+idea:"Maak een app. Idee: "+idea;
+ const r=await fetch(C.url,{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+C.key},body:JSON.stringify({model:C.model,messages:[{role:"system",content:sys},{role:"user",content:u}],max_tokens:6000})});
+ if(!r.ok)throw new Error("AI-dienst gaf fout "+r.status);
+ let h=(await r.json()).choices[0].message.content.replace(/```(?:html)?/gi,"");
+ const i=h.search(/<!doctype|<html/i);if(i<0)throw new Error("ik kreeg geen app terug, probeer het nog eens");
+ h=h.slice(i);cur={name:((h.match(/<title>(.*?)<\/title>/i)||[])[1]||"Mijn app").trim(),html:h};
+ $("as").textContent="Opslaan";showApp();return"Klaar. Ik heb "+cur.name+" gemaakt. Je ziet hem op het scherm."}
+function showApp(){const h=cur.html;$("fr").srcdoc=/<head[^>]*>/i.test(h)?h.replace(/<head[^>]*>/i,m=>m+CSP):CSP+h;$("appv").hidden=false}
+$("ac").onclick=()=>{$("appv").hidden=true;$("fr").srcdoc=""};
+$("as").onclick=()=>{const a=apps().filter(x=>x.name!==cur.name);a.push(cur);localStorage.echoapps=JSON.stringify(a);$("as").textContent="Opgeslagen"};
+$("ad").onclick=async()=>{const f=new File([cur.html],cur.name.replace(/\W+/g,"-")+".html",{type:"text/html"});try{await navigator.share({files:[f],title:cur.name})}catch(e){const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;a.click()}};
+async function ask(text){
+ if(!C.key)return"Ik heb nog geen AI-sleutel. Voeg een gratis sleutel toe bij Instellingen.";
+ hist.push({role:"user",content:text});hist=hist.slice(-8);
+ const sys=`Je bent Echo, een persoonlijke spraakassistent in de stijl van Jarvis, voor ${C.name||"de gebruiker"}. Antwoord in het Nederlands, kort (maximaal 2 of 3 zinnen), als gesproken taal, zonder opmaak of emoji. Nu: ${new Date().toLocaleString("nl-NL")}.${C.loc&&C.city?` De gebruiker is in ${C.city}.`:""}`;
+ const r=await fetch(C.url,{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+C.key},body:JSON.stringify({model:C.model,messages:[{role:"system",content:sys},...hist],max_tokens:1500})});
+ if(!r.ok)throw new Error("AI-dienst gaf fout "+r.status);
+ const a=(await r.json()).choices[0].message.content.trim();hist.push({role:"assistant",content:a});return a}
+function sendText(){const v=$("tx").value.trim();if(!v)return;$("tx").value="";unlockSpeech();run(v)}
+$("sd").onclick=sendText;$("tx").onkeydown=e=>{if(e.key==="Enter")sendText()};
+$("mu").onclick=()=>{C.mute=!C.mute;save();$("mu").textContent="Stem: "+(C.mute?"uit":"aan")};
+$("mu").textContent="Stem: "+(C.mute?"uit":"aan");
+async function reqLock(){try{wl=await navigator.wakeLock.request("screen")}catch(e){}}
+function setWake(on){
+ wakeOn=on;$("wake").textContent="Hey Echo: "+(on?"aan":"uit");
+ if(on){unlockSpeech();listen(false);reqLock()}else{stopRec();try{wl&&wl.release()}catch(e){}}
+ st(idle())}
+$("wake").onclick=()=>setWake(!wakeOn);
+$("orb").onclick=()=>{unlockSpeech();if(wakeOn){armed=Date.now()+8000;beep();st("Ik luister…")}else{$("orb").classList.add("on");st("Ik luister…");listen(true)}};
+$("brief").onclick=()=>{unlockSpeech();run("briefing")};$("bb").onclick=$("brief").onclick;
+function fillVoices(){const V=speechSynthesis.getVoices().filter(v=>/^nl/i.test(v.lang||"")),f=$("f_voice");f.innerHTML="";
+ if(!V.length){f.innerHTML="<option>Geen Nederlandse stemmen gevonden</option>";return}
+ for(const v of V){const o=document.createElement("option");o.value=v.voiceURI;o.textContent=v.name+" ("+v.lang+")";f.appendChild(o)}
+ f.value=(V.find(v=>v.voiceURI===C.voice)||V.find(v=>/nl[-_]BE/i.test(v.lang))||V[0]).voiceURI}
+$("f_voice").onchange=()=>{C.voice=$("f_voice").value;save();say("Hallo, ik ben Echo.",1)};
+$("cb").onclick=()=>{const c=$("cfg");c.hidden=!c.hidden;if(!c.hidden){for(const k of["name","city","brief","prov","url","model","key"])$("f_"+k).value=C[k];fillVoices();$("f_loc").checked=!!C.loc}};
+$("f_prov").onchange=e=>{const p=P[e.target.value];if(p){$("f_url").value=p[0];$("f_model").value=p[1]}};
+$("pair").onclick=async()=>{
+ if(!C.key){st("Sla eerst je AI-sleutel op");return}
+ const j=JSON.stringify({echo:1,url:C.url,model:C.model,key:C.key,name:C.name});
+ try{await navigator.clipboard.writeText(j);st("Configuratie gekopieerd. Plak hem in de Echo Glasses-app.")}catch(e){st("Kopiëren mislukt")}};
+$("save").onclick=async()=>{
+ for(const k of["name","city","brief","prov","url","model","key"])C[k]=$("f_"+k).value.trim();
+ C.loc=$("f_loc").checked;
+ const p=$("f_pin").value.trim();if(p==="-")C.pin="";else if(p)C.pin=await hash(p);
+ $("f_pin").value="";save();$("cfg").hidden=true;st("Opgeslagen")};
+const [bh,bm]=C.brief.split(":"),due=new Date();due.setHours(+bh,+bm,0,0);
+if(new Date()>=due&&C.last!==new Date().toDateString())$("bb").hidden=false;
+st(idle());lockIf();
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
+</script><script src="echo-jarvis.js"></script><script src="echo-clap.js"></script></body></html>
